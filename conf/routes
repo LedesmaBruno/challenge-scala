@@ -1,0 +1,10 @@
+
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+GET     /api/images                 controllers.ImageSearchController.getCachedImages
+GET     /api/images/:id                 controllers.ImageSearchController.getImageDetail(id)
+#GET     /api/images/search          controllers.ImageSearchController.searchImages(author: Option[String], camera: Option[String], tags: Option[String])
+
+      
