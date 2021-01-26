@@ -17,13 +17,13 @@ object BriefPictureDto {
   )
 }
 
-case class PictureDto(id: String, author: String, camera: String, tags: String, cropped_picture: String, full_picture: String)
+case class PictureDto(id: String, author: String, camera: Option[String], tags: String, cropped_picture: String, full_picture: String)
 
 object PictureDto {
   implicit val reads: Reads[PictureDto] = (
     (JsPath \ "id").read[String] and
       (JsPath \ "author").read[String] and
-      (JsPath \ "camera").read[String] and
+      (JsPath \ "camera").readNullable[String] and
       (JsPath \ "tags").read[String] and
       (JsPath \ "cropped_picture").read[String] and
       (JsPath \ "full_picture").read[String]

@@ -11,13 +11,12 @@ import scala.concurrent.ExecutionContext
 @Singleton
 class ImageSearchController @Inject()(cc: ControllerComponents, imagesService: ImagesService)(implicit exec: ExecutionContext) extends AbstractController(cc) {
 
-// TODO in order to compile this is commented.
-//  def searchImages(author: Option[String], camera: Option[String], tags: Option[String]) = Action.async {
-//    imagesService.search(author, camera, tags).map {
-//      case Some(list) => Ok(Json.toJson(list.to[ListBuffer]))
-//      case None => NotFound
-//    }
-//  }
+  // TODO Check Json.toJson(IMMUTABLE LIST). Had to convert it to ListBuffer.
+  def searchImages(author: Option[String], camera: Option[String], tags: Option[String]) = Action.async {
+    imagesService.search(author, camera, tags).map {
+      list => Ok(Json.toJson(list.to[ListBuffer]))
+    }
+  }
 
   def getImageDetail(id: String) = Action.async {
     imagesService.fetchImageDetail(id).map {

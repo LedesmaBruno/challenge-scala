@@ -3,7 +3,7 @@ package services
 import akka.actor.ActorSystem
 import dto.{AuthResponseDto, BriefPictureDto, ImagesResponseDto, PictureDto}
 import play.api.cache.AsyncCacheApi
-import play.api.libs.json.Json
+import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.libs.ws.{WSClient, WSRequest}
 
 import javax.inject.{Inject, Singleton}
@@ -11,7 +11,7 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 @Singleton
 class ImagesService @Inject()(ws: WSClient, cache: AsyncCacheApi, actorSystem: ActorSystem) {
@@ -20,7 +20,7 @@ class ImagesService @Inject()(ws: WSClient, cache: AsyncCacheApi, actorSystem: A
   private var token = auth
   private var pageCount = 0
 
-  (actorSystem.scheduler scheduleAtFixedRate(initialDelay = 0.second, interval = 1.minute)) { () => initLoadCache }
+  (actorSystem.scheduler scheduleAtFixedRate(initialDelay = 0.second, interval = 10.minute)) { () => initLoadCache }
 
   // TODO invalid token handler and renewal
   private def auth = {
@@ -71,7 +71,7 @@ class ImagesService @Inject()(ws: WSClient, cache: AsyncCacheApi, actorSystem: A
 
     request.get().map {
       response =>
-        if (response.status == 200) Some(response.json.validate[PictureDto].get)
+        if (response.status == 200) Some(response.json.as[PictureDto])
         else None
     }
   }
@@ -87,18 +87,23 @@ class ImagesService @Inject()(ws: WSClient, cache: AsyncCacheApi, actorSystem: A
    * picture when a single image is queried (in `fetchImageDetail`) but for the latter, cache wouldn't be loaded with
    * all the images as requested by the challenge.
    */
-  def search(author: Option[String], camera: Option[String], tags: Option[String]) = {
-    cache.get[List[BriefPictureDto]]("images").map {
+  def search(author: Option[String], camera: Option[String], tags: Option[String]): Future[ListBuffer[PictureDto]] = {
+    cache.get[ListBuffer[BriefPictureDto]]("images").flatMap {
       case Some(list) =>
-        list.map {
-          briefpicture =>
-            fetchImageDetail(briefpicture.id).map {
-              case Some(pic) => pic
-              case None => throw new IllegalStateException
-            }
-        }
-//    TODO Here is missing the logic for filtering. I don't want to waste more time
-      case None => List.empty
+        Future.sequence(
+          list.map {
+            briefpicture =>
+              fetchImageDetail(briefpicture.id).map {
+                case Some(pic) => pic
+                case None => throw new IllegalStateException
+              }
+          }
+        ).map(_.filter(pic => {
+          (if (author.isDefined) author.contains(pic.author) else true) &&
+            (if (camera.isDefined && pic.camera.isDefined) camera.contains(pic.camera.get) else true) &&
+            (if (tags.isDefined) tags.contains(pic.tags) else true)
+        }))
+      case None => Future(ListBuffer.empty)
     }
   }
 }
